@@ -22,14 +22,24 @@ _CACHE_TTL = 15 * 60
 LEVELS = ["low", "moderate", "high"]
 
 
+# async def _get(url: str, params: dict) -> dict:
+#     try:
+#         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+#             r = await client.get(url, params=params)
+#             r.raise_for_status()
+#             return r.json()
+#     except (httpx.TimeoutException, httpx.HTTPError) as exc:
+#         raise HTTPException(status_code=500, detail="Weather service unavailable, try again shortly") from exc
 async def _get(url: str, params: dict) -> dict:
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
             r = await client.get(url, params=params)
             r.raise_for_status()
             return r.json()
-    except (httpx.TimeoutException, httpx.HTTPError) as exc:
-        raise HTTPException(status_code=500, detail="Weather service unavailable, try again shortly") from exc
+    except Exception as exc:
+        import logging
+        logging.error(f"Weather API error: {type(exc).__name__}: {exc}")
+        raise HTTPException(status_code=500, detail=f"Weather error: {type(exc).__name__}: {str(exc)}") from exc
 
 
 async def geocode(q: str) -> List[dict]:
