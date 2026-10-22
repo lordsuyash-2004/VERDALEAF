@@ -15,6 +15,7 @@ from fastapi import HTTPException
 
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
+WEATHERAPI_URL = "https://api.weatherapi.com/v1/forecast.json"
 _TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 _HEADERS = {"User-Agent": "Verdaleaf-PlantApp/1.0"}
 _CACHE: Dict[str, Any] = {}
