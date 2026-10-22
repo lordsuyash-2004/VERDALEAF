@@ -31,16 +31,23 @@ LEVELS = ["low", "moderate", "high"]
 #     except (httpx.TimeoutException, httpx.HTTPError) as exc:
 #         raise HTTPException(status_code=500, detail="Weather service unavailable, try again shortly") from exc
 async def _get(url: str, params: dict) -> dict:
-    try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-            r = await client.get(url, params=params)
-            r.raise_for_status()
-            return r.json()
-    except Exception as exc:
-        import logging
-        logging.error(f"Weather API error: {type(exc).__name__}: {exc}")
-        raise HTTPException(status_code=500, detail=f"Weather error: {type(exc).__name__}: {str(exc)}") from exc
-
+    import asyncio, logging
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+                r = await client.get(url, params=params)
+                if r.status_code == 429:
+                    logging.warning(f"Open-Meteo rate limit hit, retry {attempt+1}/3")
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                r.raise_for_status()
+                return r.json()
+        except Exception as exc:
+            logging.error(f"Weather API error: {type(exc).__name__}: {exc}")
+            if attempt == 2:
+                raise HTTPException(status_code=500, detail="Weather service unavailable, try again shortly") from exc
+            await asyncio.sleep(2 ** attempt)
+    raise HTTPException(status_code=500, detail="Weather service unavailable after retries")
 
 async def geocode(q: str) -> List[dict]:
     data = await _get(GEOCODE_URL, {"name": q, "count": 6, "language": "en", "format": "json"})
