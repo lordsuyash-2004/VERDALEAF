@@ -1,4 +1,4 @@
-"""Weather-driven plant disease risk (Open-Meteo, free, no key).
+"""Weather-driven plant disease risk (Open-Meteo + WeatherAPI.com fallback).
 
 Risk model (rule-based estimate, NOT a diagnosis):
 - Leaf-wetness proxy hour: RH >= 90%, or rain > 0.1 mm, or temp - dew point <= 2 C.
@@ -6,7 +6,10 @@ Risk model (rule-based estimate, NOT a diagnosis):
 - Bacterial risk: wet hours >= 25 C plus heavy rain (splash-spread bacterial spot / blight).
 - Heat & mite stress: hours >= 32 C with RH < 40% (spider mites, sun scorch, wilting).
 """
+import os
 import time
+import asyncio
+import logging
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -24,22 +27,13 @@ _CACHE_TTL = 30 * 60
 LEVELS = ["low", "moderate", "high"]
 
 
-# async def _get(url: str, params: dict) -> dict:
-#     try:
-#         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-#             r = await client.get(url, params=params)
-#             r.raise_for_status()
-#             return r.json()
-#     except (httpx.TimeoutException, httpx.HTTPError) as exc:
-#         raise HTTPException(status_code=500, detail="Weather service unavailable, try again shortly") from exc
 async def _get(url: str, params: dict) -> dict:
-    import asyncio, logging
     for attempt in range(3):
         try:
-             async with httpx.AsyncClient(timeout=_TIMEOUT, headers=_HEADERS) as client:
+            async with httpx.AsyncClient(timeout=_TIMEOUT, headers=_HEADERS) as client:
                 r = await client.get(url, params=params)
                 if r.status_code == 429:
-                    logging.warning(f"Open-Meteo rate limit hit, retry {attempt+1}/3")
+                    logging.warning(f"Rate limit hit, retry {attempt+1}/3")
                     await asyncio.sleep(2 ** attempt)
                     continue
                 r.raise_for_status()
@@ -50,6 +44,7 @@ async def _get(url: str, params: dict) -> dict:
                 raise HTTPException(status_code=500, detail="Weather service unavailable, try again shortly") from exc
             await asyncio.sleep(2 ** attempt)
     raise HTTPException(status_code=500, detail="Weather service unavailable after retries")
+
 
 async def geocode(q: str) -> List[dict]:
     data = await _get(GEOCODE_URL, {"name": q, "count": 6, "language": "en", "format": "json"})
@@ -107,7 +102,6 @@ def compute_risk(data: dict) -> dict:
         raise HTTPException(status_code=500, detail="Weather service returned no forecast")
     times, temps, rhs, rains, dews = times[:n], temps[:n], rhs[:n], rains[:n], dews[:n]
 
-    # Only look forward from the current local hour.
     cur_time = (data.get("current") or {}).get("time", "")
     start = 0
     if cur_time:
@@ -132,17 +126,17 @@ def compute_risk(data: dict) -> dict:
             "examples": "Early & late blight, leaf spots, downy mildew, rust",
             "level": fungal_level,
             "score": _score(m["fungal_hours"], 36),
-            "reason": (f"{m['fungal_hours']} of the next {hours} hours have damp leaves at 15–30°C, "
+            "reason": (f"{m['fungal_hours']} of the next {hours} hours have damp leaves at 15-30C, "
                        f"which lets fungal spores germinate.") if m["fungal_hours"] else
-                      "Leaves should stay dry over the next 3 days — fungal spores struggle to germinate.",
+                      "Leaves should stay dry over the next 3 days - fungal spores struggle to germinate.",
             "advice": {
                 "high": ["Spray a protective fungicide (copper or mancozeb) before the wet spell",
-                         "Water at the base in the morning only — keep leaves dry",
+                         "Water at the base in the morning only - keep leaves dry",
                          "Remove spotted lower leaves and improve airflow between plants"],
                 "moderate": ["Check the undersides of leaves every 2 days for new spots",
                              "Avoid overhead watering and evening irrigation",
                              "Keep a fungicide ready if humidity stays high"],
-                "low": ["Conditions are unfavourable for fungi — keep normal care",
+                "low": ["Conditions are unfavourable for fungi - keep normal care",
                         "Continue weekly leaf checks"],
             }[fungal_level],
         },
@@ -152,16 +146,16 @@ def compute_risk(data: dict) -> dict:
             "examples": "Bacterial spot, bacterial blight, soft rot",
             "level": bact_level,
             "score": _score(bact_signal, 27),
-            "reason": (f"{m['bacterial_hours']} warm & wet hours (≥25°C) and {m['rain_mm']} mm of rain expected — "
+            "reason": (f"{m['bacterial_hours']} warm & wet hours (>=25C) and {m['rain_mm']} mm of rain expected - "
                        f"rain splash spreads bacteria between leaves.") if bact_signal else
-                      "No warm, rainy spells ahead — bacteria have little chance to spread.",
+                      "No warm, rainy spells ahead - bacteria have little chance to spread.",
             "advice": {
                 "high": ["Do not work among plants while leaves are wet",
                          "Apply a copper-based bactericide before heavy rain",
                          "Mulch the soil to stop rain splashing onto leaves"],
                 "moderate": ["Disinfect pruning tools between plants",
                              "Mulch around the base to reduce soil splash"],
-                "low": ["Low bacterial pressure — no action needed"],
+                "low": ["Low bacterial pressure - no action needed"],
             }[bact_level],
         },
         {
@@ -170,7 +164,7 @@ def compute_risk(data: dict) -> dict:
             "examples": "Spider mites, leaf scorch, wilting",
             "level": heat_level,
             "score": _score(m["heat_hours"], 18),
-            "reason": (f"{m['heat_hours']} hot, dry hours (≥32°C, humidity under 40%) ahead — "
+            "reason": (f"{m['heat_hours']} hot, dry hours (>=32C, humidity under 40%) ahead - "
                        f"mites multiply fast and leaves can scorch.") if m["heat_hours"] else
                       "No hot, dry spells expected over the next 3 days.",
             "advice": {
@@ -186,7 +180,6 @@ def compute_risk(data: dict) -> dict:
     overall = max((r["level"] for r in risks), key=LEVELS.index)
     top = max(risks, key=lambda r: (LEVELS.index(r["level"]), r["score"]))
 
-    # Daily outlook (local calendar days)
     days: Dict[str, Dict[str, list]] = {}
     for i in range(n):
         d = times[i][:10]
@@ -211,9 +204,9 @@ def compute_risk(data: dict) -> dict:
     if overall == "high":
         headline = f"High {top['label'].lower().replace('diseases', 'disease')} risk in the next 3 days"
     elif overall == "moderate":
-        headline = f"Moderate {top['label'].lower().replace('diseases', 'disease')} risk — stay watchful"
+        headline = f"Moderate {top['label'].lower().replace('diseases', 'disease')} risk - stay watchful"
     else:
-        headline = "Low disease risk — good growing weather"
+        headline = "Low disease risk - good growing weather"
 
     return {
         "current": {
@@ -234,7 +227,7 @@ def compute_risk(data: dict) -> dict:
         "latitude": data.get("latitude"),
         "longitude": data.get("longitude"),
         "source": "Open-Meteo",
-        "disclaimer": "Rule-based estimate from forecast weather — not a diagnosis.",
+        "disclaimer": "Rule-based estimate from forecast weather - not a diagnosis.",
     }
 
 
@@ -242,8 +235,7 @@ def _convert_weatherapi(wdata: dict) -> dict:
     cur = wdata.get("current", {})
     loc = wdata.get("location", {})
     forecast_days = wdata.get("forecast", {}).get("forecastday", [])
-    
-    # Build hourly arrays from forecast days
+
     temps, rhs, rains, dews, times = [], [], [], [], []
     for day in forecast_days:
         for hour in day.get("hour", []):
@@ -252,20 +244,20 @@ def _convert_weatherapi(wdata: dict) -> dict:
             rhs.append(hour.get("humidity"))
             rains.append(hour.get("precip_mm", 0))
             dews.append(hour.get("dewpoint_c"))
-    
+
     n = len(times)
     m = _assess(temps, rhs, rains, dews) if n > 0 else {"wet_hours": 0, "fungal_hours": 0, "bacterial_hours": 0, "heat_hours": 0, "rain_mm": 0}
     hours = min(n, 72)
-    
+
     fungal_level = _level(m["fungal_hours"], 10, 24)
     bact_signal = m["bacterial_hours"] + (12 if m["rain_mm"] >= 15 else 6 if m["rain_mm"] >= 5 else 0)
     bact_level = _level(bact_signal, 8, 18)
     heat_level = _level(m["heat_hours"], 4, 12)
-    
+
     risks = [
         {"key": "fungal", "label": "Fungal diseases", "examples": "Early & late blight, leaf spots, downy mildew, rust",
          "level": fungal_level, "score": _score(m["fungal_hours"], 36),
-         "reason": f"{m['fungal_hours']} damp hours at 15-30°C" if m["fungal_hours"] else "Low fungal pressure",
+         "reason": f"{m['fungal_hours']} damp hours at 15-30C" if m["fungal_hours"] else "Low fungal pressure",
          "advice": ["Monitor leaves regularly", "Avoid overhead watering"]},
         {"key": "bacterial", "label": "Bacterial diseases", "examples": "Bacterial spot, blight, soft rot",
          "level": bact_level, "score": _score(bact_signal, 27),
@@ -277,21 +269,70 @@ def _convert_weatherapi(wdata: dict) -> dict:
          "advice": ["Water deeply in morning", "Provide shade if needed"]},
     ]
     overall = max((r["level"] for r in risks), key=LEVELS.index)
-    
+
     daily = []
     for day in forecast_days[:3]:
         d = day["date"]
-        daily.append({"date": d, "weekday": datetime.fromisoformat(d).strftime("%a"),
-                       "temp_min": day["day"].get("mintemp_c"), "temp_max": day["day"].get("maxtemp_c"),
-                       "humidity_avg": day["day"].get("avghumidity"), "rain_mm": day["day"].get("totalprecip_mm", 0),
-                       "fungal_level": "low"})
-    
+        daily.append({
+            "date": d,
+            "weekday": datetime.fromisoformat(d).strftime("%a"),
+            "temp_min": day["day"].get("mintemp_c"),
+            "temp_max": day["day"].get("maxtemp_c"),
+            "humidity_avg": day["day"].get("avghumidity"),
+            "rain_mm": day["day"].get("totalprecip_mm", 0),
+            "fungal_level": "low",
+        })
+
     return {
-        "current": {"time": cur.get("last_updated"), "temperature": cur.get("temp_c"),
-                     "humidity": cur.get("humidity"), "precipitation": cur.get("precip_mm"),
-                     "wind_speed": cur.get("wind_kph"), "weather_code": 0, "is_day": cur.get("is_day")},
-        "overall_level": overall, "headline": f"{overall.title()} disease risk",
-        "risks": risks, "daily": daily, "metrics": {**m, "hours": hours},
-        "timezone": loc.get("tz_id"), "latitude": loc.get("lat"), "longitude": loc.get("lon"),
-        "source": "WeatherAPI.com", "disclaimer": "Rule-based estimate from forecast weather — not a diagnosis.",
+        "current": {
+            "time": cur.get("last_updated"),
+            "temperature": cur.get("temp_c"),
+            "humidity": cur.get("humidity"),
+            "precipitation": cur.get("precip_mm"),
+            "wind_speed": cur.get("wind_kph"),
+            "weather_code": 0,
+            "is_day": cur.get("is_day"),
+        },
+        "overall_level": overall,
+        "headline": f"{overall.title()} disease risk",
+        "risks": risks,
+        "daily": daily,
+        "metrics": {**m, "hours": hours},
+        "timezone": loc.get("tz_id"),
+        "latitude": loc.get("lat"),
+        "longitude": loc.get("lon"),
+        "source": "WeatherAPI.com",
+        "disclaimer": "Rule-based estimate from forecast weather - not a diagnosis.",
     }
+
+
+async def disease_risk(lat: float, lon: float) -> dict:
+    key = f"{round(lat, 2)}:{round(lon, 2)}"
+    hit = _CACHE.get(key)
+    if hit and time.time() - hit[0] < _CACHE_TTL:
+        return hit[1]
+
+    # Try Open-Meteo first
+    try:
+        data = await _get(FORECAST_URL, {
+            "latitude": lat, "longitude": lon,
+            "current": "temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,is_day",
+            "hourly": "temperature_2m,relative_humidity_2m,precipitation,dew_point_2m",
+            "forecast_days": 4, "timezone": "auto",
+        })
+        result = compute_risk(data)
+    except Exception:
+        # Fallback to WeatherAPI.com
+        wapi_key = os.environ.get("WEATHERAPI_KEY", "")
+        if not wapi_key:
+            raise HTTPException(status_code=500, detail="Weather service unavailable")
+        async with httpx.AsyncClient(timeout=_TIMEOUT, headers=_HEADERS) as client:
+            r = await client.get(WEATHERAPI_URL, params={"key": wapi_key, "q": f"{lat},{lon}", "days": 3, "aqi": "no"})
+            r.raise_for_status()
+            wdata = r.json()
+        result = _convert_weatherapi(wdata)
+
+    _CACHE[key] = (time.time(), result)
+    if len(_CACHE) > 500:
+        _CACHE.clear()
+    return result
