@@ -1,0 +1,23 @@
+{
+  "summary": "Targeted retest of the HIGH-priority Retake regression from iteration_4 on Verdaleaf's live camera. Injected a canvas.captureStream(30) fake MediaStream via add_init_script (each getUserMedia call returns a NEW animated stream, so a solid-black frame check is meaningful). Ran two full shutter->Retake cycles, then flip, then flip+shutter+Retake, then close-cleanup and Use-photo-cleanup. All assertions pass: after Retake the <video> has srcObject non-null with a 'live' track, is not paused, videoWidth=640, is not marked 'invisible', and the sampled pixels are non-black (real frames painted). A second shutter after Retake produced a fresh camera-shot-preview with no 'Camera is still warming up' toast. MediaStream cleanup still works — tracks read 'ended' after both camera-close-btn and camera-use-btn. Use-photo still sets data-testid=upload-preview. No /api/detect call was triggered (per instruction).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_5.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "CameraCapture.jsx fix looks correct: <video> is rendered unconditionally with an 'invisible' class during review and the still <img data-testid=camera-shot-preview> is overlaid absolutely. This preserves the video DOM node across Retake so srcObject stays attached — verified in test.",
+    "Cleanup is now via useEffect(() => () => stop(), [stop]) — works, but stop is only recreated on component identity (useCallback with no deps), so the returned function captures the same stop closure. Fine in practice.",
+    "Verified across two Retake cycles + a flip + a flip+shutter+Retake sequence — repeatable, no black frame, no warming-up toast."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100% (all retest assertions pass)"},
+  "seed_data_creation": "None. No /api/detect calls were made in this iteration (per instruction).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The Retake regression from iteration_4 is fixed. The pattern is: add_init_script installs a fake navigator.mediaDevices.getUserMedia that returns a fresh canvas.captureStream(30) each call (animate the canvas so nonBlackFrame checks are meaningful), and fake enumerateDevices returning two videoinputs so the Flip button is enabled. Opener button is data-testid=open-camera-btn on /dashboard.",
+  "rca_of_the_issue": "Previously <video> was conditionally rendered ({shot ? <img/> : <video/>}), so Retake re-mounted a fresh <video> without srcObject. Fix (option b from iteration_4 action_items): render <video> unconditionally with an 'invisible' Tailwind class while shot is set, and overlay the captured <img> absolutely. Node identity preserved -> srcObject stays attached -> live feed resumes instantly on Retake."
+}

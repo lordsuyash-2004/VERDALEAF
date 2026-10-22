@@ -1,0 +1,26 @@
+{
+  "summary": "First-finish smoke tests for Verdaleaf plant disease detection app. Verified 3 public endpoints, 2 protected 401s, anonymous /api/detect with real Gemini call, authenticated detect + history + delete via mock mongo session, and core frontend flows (landing render, sign-in redirect target, anonymous vs authed dashboard).",
+  "tested_scope": ["backend", "frontend", "auth", "integration"],
+  "passed": [
+    "GET /api/ returns 200 with {status: ok, message: 'Plant Disease Detection API'}",
+    "GET /api/diseases returns 200 with 6 items and correct keys (id,name,plant,type,severity,symptoms,treatment,image)",
+    "GET /api/tips returns 200 with 6 items and correct keys (id,title,body,image)",
+    "GET /api/auth/me without auth returns 401",
+    "GET /api/history without auth returns 401",
+    "POST /api/detect anonymous with real leaf JPEG (~28KB) returns 200; Gemini identified 'Black Spot' on 'Rose' with all required fields; user_id is null; scan NOT persisted (history remains 401 without auth)",
+    "POST /api/detect authenticated (Bearer token from mongo session) returns 200 and persists; GET /api/history then returns 1 item with matching id",
+    "DELETE /api/history/{det_id} authenticated returns {deleted: 1}; subsequent history returns []",
+    "Landing page renders with data-testid='landing-page', hero+CTA visible ('Sign in & diagnose', 'Sign in with Google')",
+    "Clicking 'Sign in & diagnose' navigates to https://auth.emergentagent.com/?redirect=<dashboard-url> (verified in source Header.jsx/Landing.jsx/Dashboard.jsx); browser follows redirect chain via demobackend.emergentagent.com to Google OAuth as expected",
+    "Anonymous /dashboard renders data-testid='dashboard-page' and upload-area; user-badge and history section NOT present (correct)",
+    "Authed /dashboard (mock cookie) shows data-testid='user-badge' with user name and history-empty section with 'No scans yet. Diagnose a leaf above and it appears here.'"
+  ],
+  "failed": [],
+  "action_items": [
+    "Minor: review request referenced data-testid='history-section' but actual testids are 'history-empty' and 'history-card-{i}'. Behavior is correct; only the testid naming in review request differs. No code change required unless a wrapper testid is desired.",
+    "Upload+Diagnose end-to-end UI flow (drag/drop → run-detection-btn → DiagnosisResult render) was NOT executed in this smoke pass because the Gemini call was already validated via backend and the review notes 5-15s runtime. Defer to full testing agent."
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "retest_needed": false,
+  "full_testing_deferred": true
+}

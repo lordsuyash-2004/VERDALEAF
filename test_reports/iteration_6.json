@@ -1,0 +1,37 @@
+{
+  "summary": "Tested the new multi-language diagnosis (en/hi/kn), localized PDF reports, history search via *_en fields, Open-Meteo weather risk (geocode + risk) on backend and the dashboard UI (language picker, weather card, geolocation grant/deny, dark mode, mobile 390px). All requested flows work. Found and fixed (in seed data/script) a 500 on /api/history/stats caused by mixed created_at types. One remaining minor backend bug: unescaped regex in history search -> 500.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/history/stats (and /api/history sort)", "issue": "FIXED BY TESTER (data-side): returned 500 TypeError \"'>' not supported between 'str' and 'datetime'\". scripts/seed_demo_history.py stored created_at as BSON datetime while /api/detect stores ISO strings; max(dates) crashed and the mixed types also sorted new scans BELOW seeded ones in history. Seed script now uses .isoformat() and the 8 existing demo docs were migrated to strings. Suggest the main agent also make history_stats robust (e.g. normalize via str()/isoformat before max) so any mixed legacy data can't 500.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "GET /api/history?q=((", "issue": "Returns 500: pymongo OperationFailure 'Regular expression is invalid'. q goes into $regex unescaped. Fix: use re.escape(q) in the $or regexes in server.py history()."},
+      {"endpoint": "POST /api/report/pdf", "issue": "Content-Disposition filename is 'verdaleaf-diagnosis.pdf' for Hindi/Kannada because ReportRequest has no disease_name_en and the slug is made from the localized disease_name. The frontend sets its own filename (verdaleaf-walnut-anthracnose.pdf) so users don't see this; add disease_name_en/plant_en to ReportRequest and slug from it for consistency."},
+      {"endpoint": "POST /api/detect", "issue": "severity is not checked server-side against low|moderate|severe (it is taken from parsed JSON as-is). It was correct in every test, but if the model ever translates it, the UI/PDF would break. Suggest coercing to the enum."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_language_weather.py", "/app/test_reports/pytest/lang_weather_results.xml"],
+  "action_items": [
+    "Escape the user's search query in /api/history (re.escape) to stop the 500 on regex special characters",
+    "Make /api/history/stats tolerant of mixed created_at types (str vs datetime)",
+    "Optional: add disease_name_en to ReportRequest for the server-side PDF filename; coerce severity to the enum in detect()"
+  ],
+  "critical_code_review_comments": [
+    "server.py history(): raw user input goes into $regex (500 / ReDoS risk)",
+    "server.py detect(): severity/confidence come straight from LLM output with no enum validation; int() on a non-numeric confidence would 500",
+    "server.py detect(): leftover block of commented-out emergentintegrations code (lines ~255-278) should be removed",
+    "History stats top_issue groups by the model's disease_name_en, which varies between runs ('Anthracnose' vs 'Walnut Anthracnose'). Expected LLM variance, not a bug."
+  ],
+  "updated_files": ["/app/scripts/seed_demo_history.py", "/app/backend/tests/test_language_weather.py", "MongoDB: migrated demo user's 8 seeded detections created_at datetime -> ISO string"],
+  "success_rate": {"backend": "94% (15/16; regex-escape test fails)", "frontend": "100%"},
+  "test_credentials": "qa-demo-session-token (Bearer or session_token cookie) from /app/memory/test_credentials.md - works",
+  "seed_data_creation": "About 9 real Gemini detections saved to the demo user (hi/kn/en Walnut Anthracnose scans from /tmp/leaf.jpg)",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Verified: detect hi (Devanagari) / kn (Kannada script) / default en, plant_en & disease_name_en stay English, 'fr' -> 422; the hi/kn PDFs render with correct shaping (rendered with pypdfium2 and inspected visually); history search by English name finds hi/kn scans; weather geocode/risk structure and 422s; UI language picker + localStorage verdaleaf-lang persistence, result-language-badge 'हिन्दी', PDF download filename verdaleaf-walnut-anthracnose.pdf; weather city search (Mysuru), all risk/outlook testids, verdaleaf-location persistence, refresh, change/cancel, 'No places found'; geolocation grant -> 'Your location', deny -> toast + picker stays; dark mode readable; 390px has no overflow; /history page shows localized cards and stats. Note: pytest.ini enables xdist (-n), so the module-level detect cache is per worker and -k 'Weather' also matches the filename. Run a single class with ::TestWeather to save Gemini quota."
+}

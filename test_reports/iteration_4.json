@@ -1,0 +1,34 @@
+{
+  "summary": "Frontend-only verification of Verdaleaf live-camera feature at https://codebase-reader-21.preview.emergentagent.com/dashboard. Injected a canvas.captureStream()-based fake MediaStream via add_init_script (since the automation browser can't be launched with --use-fake-device-for-media-stream flags) to simulate a real MediaStream with painted frames. Verified: control separation, real video frames rendering, shutter->review flow, Use-photo->preview->/api/detect (ONE successful 200 with real diagnosis text on the camera-captured base64 JPEG), MediaStream track cleanup after both close and Use-photo, permission-denied path, unsupported-browser fallback to native capture input, dark-mode class applied, and desktop rendering. Found ONE clear regression: Retake leaves the live <video> blank because the getUserMedia useEffect does not re-attach streamRef.current to the newly-remounted <video> element.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "CameraCapture.jsx (Retake)",
+        "issue": "Retake button clears `shot` state, which unmounts the <img data-testid=camera-shot-preview> and remounts <video data-testid=camera-video>. The new video element has no srcObject attached because the getUserMedia useEffect only depends on [facing, stop] and does not re-run. Observed after Retake: video.videoWidth=0, video.srcObject=null, video.paused=true (black rectangle). Any subsequent shutter press then fails with the 'Camera is still warming up' toast, and no further capture is possible until the user closes and reopens the sheet. The stream in streamRef.current is still live, it just isn't attached to the new DOM node.",
+        "selector": "[data-testid=camera-retake-btn] -> [data-testid=camera-video]",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_4.json"],
+  "action_items": [
+    "Fix Retake: after setShot(null), re-attach streamRef.current to videoRef.current.srcObject (and call play()). Simplest fixes: (a) add a useEffect that runs on `shot` becoming null and reattaches the existing stream, OR (b) render the <video> unconditionally and just overlay the <img data-testid=camera-shot-preview> when shot is set (so the <video> is never unmounted), OR (c) use a ref callback on the <video> that assigns srcObject = streamRef.current whenever the node mounts."
+  ],
+  "critical_code_review_comments": [
+    "CameraCapture.jsx: The <video> element is unmounted whenever a shot is being reviewed. Because attaching srcObject happens inside the getUserMedia useEffect (dependency [facing, stop]), Retake results in a black video. This is a functional regression, not cosmetic.",
+    "CameraCapture.jsx: useEffect return only sets `cancelled = true`; it does not stop() the stream on unmount. Cleanup relies on the second `useEffect(() => stop, [stop])`. That works, but it's easy to accidentally break by changing the dep order. Consider stopping inside the same effect's return.",
+    "CameraCapture.jsx line 43: `width/height: { ideal: 1920 }` requests a square-ish max — fine, but `enumerateDevices` runs unconditionally after getUserMedia and requires camera perms; on rejection it's already gated by try/catch — OK.",
+    "UploadZone.jsx supportsLiveCamera guard is evaluated once at render time — fine for this app.",
+    "No accessibility label on camera-shutter-btn beyond aria-label='Take photo' — good. Retake and Use photo have text labels — good."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "89% (8/9 subtests pass, Retake broken)"},
+  "seed_data_creation": "None. One live /api/detect call was made with a canvas-generated JPEG and it returned 200 with a plausible 'Not a plant image' diagnosis, proving the captured base64 payload is accepted by the backend.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Automation browser (mcp_browser_automation) cannot be launched with --use-fake-device-for-media-stream. To exercise a real MediaStream in this env, inject via page.add_init_script a stub of navigator.mediaDevices.getUserMedia that returns canvas.captureStream(30). IMPORTANT: return a NEW stream each call — the component's useEffect calls stop() on the previous stream before requesting a new one, so a shared stream will be 'ended' by the time the video attaches. See iteration_4 script for a working pattern. Live-detect was already burned once (200 OK) so the happy-path is proven; no need to hit /api/detect again unless you're verifying a fix. Retake bug should be the primary retest target.",
+  "rca_of_the_issue": "CameraCapture renders `{shot ? <img/> : <video/>}`. React unmounts <video> when entering review and mounts a NEW <video> element on Retake. The stream is attached to `videoRef.current.srcObject` only inside the getUserMedia useEffect, whose dependencies are [facing, stop]. Neither changes on Retake, so the effect does not re-run and the new <video> DOM node never receives srcObject. Reproduction: open camera -> shutter -> retake -> observe camera-video has videoWidth=0, srcObject=null, paused=true; second shutter press then triggers `Camera is still warming up` toast. Mitigation options in action_items."
+}

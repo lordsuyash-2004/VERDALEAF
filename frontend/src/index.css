@@ -1,0 +1,126 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Kannada:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@500;600&family=Noto+Serif+Kannada:wght@500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    margin: 0;
+    font-family: 'Manrope', 'Noto Sans Devanagari', 'Noto Sans Kannada', ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: hsl(var(--bot-bg));
+    color: hsl(var(--bot-ink));
+    transition: background-color 0.35s ease, color 0.35s ease;
+}
+
+.font-serif {
+    font-family: 'Cormorant Garamond', 'Noto Serif Devanagari', 'Noto Serif Kannada', ui-serif, Georgia, serif;
+}
+
+.grain::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.05;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.dark .grain::before {
+    opacity: 0.09;
+}
+
+.leaf-gradient-text {
+    background: linear-gradient(135deg, #1E3F20 0%, #4A6741 60%, #A4907C 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.dark .leaf-gradient-text {
+    background: linear-gradient(135deg, #9CCFA3 0%, #7CBF85 60%, #D6BCA0 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+@layer base {
+    :root {
+        /* botanical palette — light */
+        --bot-forest: 122 35% 18%;
+        --bot-hover: 124 35% 12%;
+        --bot-moss: 104 23% 33%;
+        --bot-sage: 124 18% 80%;
+        --bot-clay: 30 18% 57%;
+        --bot-bg: 96 27% 97%;
+        --bot-bg2: 96 20% 93%;
+        --bot-card: 0 0% 100%;
+        --bot-ink: 124 35% 12%;
+        --bot-muted: 122 8% 39%;
+
+        --background: 90 25% 97%;
+        --foreground: 120 35% 12%;
+        --card: 0 0% 100%;
+        --card-foreground: 120 35% 12%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 120 35% 12%;
+        --primary: 122 35% 18%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 105 18% 84%;
+        --secondary-foreground: 122 35% 18%;
+        --muted: 90 20% 92%;
+        --muted-foreground: 120 6% 40%;
+        --accent: 100 20% 82%;
+        --accent-foreground: 122 35% 18%;
+        --destructive: 12 61% 60%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 122 20% 88%;
+        --input: 122 20% 88%;
+        --ring: 122 35% 18%;
+        --radius: 0.75rem;
+    }
+
+    .dark {
+        /* botanical palette — dark (solid deep greens, no gradients) */
+        --bot-forest: 128 28% 34%;
+        --bot-hover: 128 32% 37%;
+        --bot-moss: 122 32% 62%;
+        --bot-sage: 125 14% 24%;
+        --bot-clay: 28 30% 68%;
+        --bot-bg: 128 22% 6%;
+        --bot-bg2: 128 18% 11%;
+        --bot-card: 130 16% 13%;
+        --bot-ink: 100 22% 92%;
+        --bot-muted: 120 10% 66%;
+
+        --background: 128 22% 6%;
+        --foreground: 100 22% 92%;
+        --card: 130 16% 13%;
+        --card-foreground: 100 22% 92%;
+        --popover: 130 16% 13%;
+        --popover-foreground: 100 22% 92%;
+        --primary: 128 28% 40%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 125 14% 22%;
+        --secondary-foreground: 100 22% 92%;
+        --muted: 128 14% 16%;
+        --muted-foreground: 120 10% 66%;
+        --accent: 125 14% 22%;
+        --accent-foreground: 100 22% 92%;
+        --destructive: 12 55% 48%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 125 12% 20%;
+        --input: 125 12% 20%;
+        --ring: 122 30% 55%;
+    }
+}
+
+@layer base {
+    * { @apply border-border; }
+    body { @apply bg-background text-foreground; }
+}
+
+::selection {
+    background: hsl(var(--bot-forest));
+    color: hsl(var(--bot-bg));
+}

@@ -1,0 +1,130 @@
+{
+  "theme": "Fresh botanical green with organic, nature-inspired aesthetic",
+  "typography": {
+    "headings": {
+      "fontFamily": "Cormorant Garamond",
+      "weights": ["400", "600", "700"],
+      "usage": "Use tight letter spacing (tracking-tight) for H1/H2. Never use Inter for headings."
+    },
+    "body": {
+      "fontFamily": "Manrope",
+      "weights": ["400", "500", "600"],
+      "usage": "Clean, highly readable font for dashboard data and plant care text. Loose line height (leading-relaxed)."
+    },
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight text-[#132A15]",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight text-[#132A15]",
+      "h3": "text-xl sm:text-2xl text-[#1E3F20]",
+      "body": "text-base text-[#5C6A5D]",
+      "labels": "text-xs tracking-[0.2em] uppercase text-[#4A6741] font-semibold"
+    },
+    "instruction": "Import Google fonts (@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Manrope:wght@400;500;600&display=swap');) in index.css. Ensure fonts are loaded before applying. Add font-family configurations to tailwind.config.js."
+  },
+  "colors": {
+    "background": {
+      "primary": "#F7F9F5",
+      "secondary": "#EEF2EB"
+    },
+    "surface": {
+      "card": "#FFFFFF",
+      "glass": "rgba(247, 249, 245, 0.7)"
+    },
+    "brand": {
+      "forest": "#1E3F20",
+      "sage": "#C2D5C4",
+      "moss": "#4A6741",
+      "clay": "#A4907C"
+    },
+    "status": {
+      "healthy": "#4A6741",
+      "warning": "#DDA76A",
+      "severe": "#D97757",
+      "info": "#7B968B"
+    },
+    "text": {
+      "primary": "#132A15",
+      "secondary": "#5C6A5D",
+      "muted": "#8A9A8C"
+    }
+  },
+  "visual_enhancers": {
+    "surfaces": "Use 'Tactile' style for cards: solid background (bg-white), 1px border (border-[#1E3F20]/10), and very soft, diffuse ambient shadow (shadow-[0_8px_30px_rgba(30,63,32,0.04)]). DO NOT use heavy generic shadows.",
+    "glassmorphism": "For sticky headers or floating elements, use backdrop-blur-xl with bg-[#F7F9F5]/70. Must have a delicate 1px border at the bottom (border-[#1E3F20]/10).",
+    "buttons": "Pill-shaped (rounded-full) for primary actions. Primary buttons use Forest Green (bg-[#1E3F20] text-white hover:bg-[#132A15]). Use subtle scale down on click (active:scale-95).",
+    "textures": "Consider a very subtle SVG noise overlay on the hero section to make it feel organic, not perfectly sterile.",
+    "borders": "Generous border radius on imagery (rounded-2xl to rounded-3xl). Keep it natural."
+  },
+  "components": {
+    "hero": "Bento-grid inspired split. Left side: organic, large typography with direct CTA. Right side: dynamic layered image or overlapping cards showing the app's capability.",
+    "image_upload": "Massive hit area (p-12 to p-16). Dashed border (border-2 border-dashed border-[#1E3F20]/20). Center content: Lucide Leaf icon, primary text 'Drag & Drop leaf photo', secondary text 'or click to browse'. On drag over, transition border to solid Forest Green and add subtle bg tint.",
+    "diagnosis_result": "Dense 'Bento' style dashboard card. Top: Large result (Disease Name) + confidence score. Middle: Severity meter (using a visual progress bar with Moss->Ochre->Terracotta). Bottom: Tabs or accordion for 'Treatment' and 'Prevention'.",
+    "detection_history": "Masonry or strict CSS Grid of leaf thumbnails. Group by date. Use aspect-square for thumbnails. Overlay the disease name on hover using a glass pane.",
+    "disease_library": "Grid of informational cards. Each card has an image, title, and a couple of tags (e.g., 'Fungal', 'High Severity').",
+    "navigation": "Sticky top bar. Logo on left (use a leaf icon + brand name). Links centered. Google Auth / User Profile on right."
+  },
+  "layouts": {
+    "spacing_system": "Generous Spacing: p-6, p-8, p-12. Containers must have internal padding. For sections, use py-20 or py-24 to let content breathe.",
+    "grid_strategy": "Mobile-first. Use grid-cols-1 md:grid-cols-2 lg:grid-cols-3 with wide gaps (gap-8). For the dashboard specific views, tighten the gap (gap-4 or gap-6) and use high density.",
+    "alignment": "Left-align mostly. Only center the hero text if it creates a strong, balanced poster-like aesthetic."
+  },
+  "motion": {
+    "hover_states": "All cards should subtly lift (-translate-y-1) and shadow deepens. Icons in buttons can translate-x-1 on hover.",
+    "page_transitions": "Fade in on load. Stagger children in grids (e.g., history items or library cards fade and slide up sequentially).",
+    "interactions": "Use framer-motion for the upload drag state and the severity meter fill animation."
+  },
+  "accessibility": {
+    "contrast": "Ensure text over images has a dark gradient overlay (e.g., bg-black/40). Text on Forest Green must be white. Text on Sage should be Forest Green.",
+    "testing_attributes": "All interactive elements MUST have data-testid attributes (e.g., data-testid='upload-area', data-testid='login-button', data-testid='history-card-0').",
+    "motion": "Respect prefers-reduced-motion."
+  },
+  "media": {
+    "icons": "lucide-react (organic, friendly line icons).",
+    "image_urls": [
+      {
+        "url": "https://images.unsplash.com/photo-1580133318324-f2f76d987dd8",
+        "category": "hero_background",
+        "description": "Close up of a green leaf with water drops. Use as hero texture or background."
+      },
+      {
+        "url": "https://images.pexels.com/photos/10894359/pexels-photo-10894359.jpeg",
+        "category": "about_or_feature",
+        "description": "Person holding monstera plant. Use in the 'Plant Care Tips' section."
+      },
+      {
+        "url": "https://images.pexels.com/photos/34234358/pexels-photo-34234358.jpeg",
+        "category": "disease_example_1",
+        "description": "Decaying leaf with fungus spots. Use as a placeholder in the detection history or disease library."
+      },
+      {
+        "url": "https://images.pexels.com/photos/2974409/pexels-photo-2974409.jpeg",
+        "category": "disease_example_2",
+        "description": "Leaf covered with holes from pests. Use as a placeholder in the detection history or disease library."
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1515150144380-bca9f1650ed9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHwxfHxnYXJkZW4lMjBwbGFudCUyMGNhcmUlMjBuYXR1cmV8ZW58MHx8fHwxNzg1NDA0NTMxfDA&ixlib=rb-4.1.0&q=85",
+        "category": "prevention",
+        "description": "Watering a plant. Use in the Prevention / Care Tips section."
+      }
+    ]
+  },
+  "libraries": {
+    "recommended": [
+      "framer-motion",
+      "lucide-react",
+      "sonner"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Prioritize optical alignment and generous spacing (e.g., p-8, p-12).",
+    "Do NOT use standard Shadcn card styles (heavy shadows, generic borders). Strip them down to the 'Tactile' style defined in visual_enhancers.",
+    "Implement a bento-grid layout for the diagnosis result to present complex ML data (severity, confidence) in a digestible, dashboard-like format.",
+    "Do not center align paragraphs or lists. Keep text left-aligned.",
+    "Add 'data-testid' to all buttons, inputs, and clickable cards.",
+    "For the image upload zone, use dashed borders and ensure a massive hit area.",
+    "Avoid Inter for headings. Use Cormorant Garamond for all H1-H4.",
+    "Ensure dark text is used on light backgrounds for APCA contrast compliance.",
+    "Never use generic AI emojis.",
+    "Implement Google Auth layout standardly, matching the organic theme (custom button styling)."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": "You tend to converge toward generic outputs. Avoid 'AI slop'. Use glass-morphism effects with backdrop filters (12-24px blur). Create depth through layered design elements with z-index hierarchy. DO NOT apply universal transition (transition: all). You MUST NOT center align the app container. Every interaction needs micro-animations. Use 2-3x more spacing. Never use placeholder text for missing images, use the provided ones."
+}

@@ -1,0 +1,59 @@
+{
+  "summary": "Retest of iteration_2 dark-mode contrast regressions on Verdaleaf. All 3 previously reported issues are FIXED. Also verified: severity/health palette brighter in dark, disease-library severity + 'Treatment ·' labels legible, Download PDF hover readable, theme persistence + no-flash, real Gemini detect flow (Healthy leaf 98%) + PDF download (475,685 bytes) both work in dark mode, and light-mode regression is clean.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "DiagnosisResult — Download PDF button (dark, hover)",
+        "issues": [
+          "White text on hover bg rgb(75,139,84) measures ~4.1:1 contrast — passes WCAG AA for large text but is just below the 4.5:1 threshold for normal 14px. Readable but borderline. Consider darkening --bot-hover in dark mode (currently 128 30% 42%) to widen the margin, or keeping bg-botanical-forest fixed at ~34%L on hover."
+        ]
+      }
+    ]
+  },
+  "verified_passing": [
+    "iteration_2 fix #1 — Active tab: Treatment/Prevention active state now color=rgb(127,189,129) (botanical-moss) on bg=rgb(53,70,54) (botanical-sage). Inactive is rgb(160,177,160) on transparent. Active is now clearly the brighter/more prominent state (visually confirmed + verified after clicking Prevention tab).",
+    "iteration_2 fix #2 — Icon chips (Landing feature cards, UploadZone leaf, step pills 1..N): now use bg-botanical-moss/20 + text-botanical-moss in dark. Composited chip bg ≈ rgb(41,54,42) with fg rgb(127,189,129) → ~5.5:1 contrast. Screenshot confirms leaf icon and numbered pills 1–5 in Prevention list are clearly legible.",
+    "iteration_2 fix #3 — UploadZone 'Select file' hint: text now rgb(127,189,129) (moss) on dark card → legible in screenshot.",
+    "Severity text ('Healthy'): rgb(124,191,133) in dark (brighter palette from sevColor.dark.low).",
+    "Disease library card severity labels: 'moderate'=rgb(232,188,132), 'severe' palette=#E8927C — brighter versions.",
+    "Disease card 'Treatment ·' label: rgb(127,189,129) (moss) — legible in dark.",
+    "Download PDF button normal state: white on rgb(62,111,69) — good contrast (~5.8:1).",
+    "Landing outline 'How it works' button uses moss color in dark → legible.",
+    "Header brand rgb(233,239,230) on translucent dark bg → high contrast.",
+    "Theme toggle (data-testid='theme-toggle') button works; swaps Sun/Moon icon.",
+    "localStorage 'verdaleaf-theme' persists (verified 'dark' after set+reload, 'light' after toggle+reload).",
+    "No flash-of-wrong-theme on reload (inline script in public/index.html applies .dark before React mounts).",
+    "Theme persists across route change / → /dashboard → / (dark stays dark; light stays light).",
+    "Real /api/detect call in dark mode: returned 'Healthy leaf' 98% confidence, DiagnosisResult rendered.",
+    "PDF download in dark: filename 'verdaleaf-healthy-leaf.pdf', size 475,685 bytes.",
+    "Toggle back to light: html.dark removed, body bg rgb(247,249,245), light design intact on / and /dashboard — no dark surfaces leaking, no washed-out text.",
+    "CTA pill button still uses fixed #1E3F20 on white — legible in dark."
+  ],
+  "test_report_links": [
+    "/app/test_reports/iteration_3.json",
+    ".screenshots/dark_landing.png",
+    ".screenshots/dark_dashboard.png",
+    ".screenshots/dark_diagnosis.png",
+    ".screenshots/light_dashboard.png",
+    ".screenshots/light_landing.png"
+  ],
+  "action_items": [
+    "OPTIONAL/minor: Download PDF hover contrast is ~4.1:1 — consider tightening --bot-hover in dark or keeping hover bg at bot-forest to reach ≥4.5:1 for the small white label."
+  ],
+  "critical_code_review_comments": [
+    "Fix strategy (dark: overrides using moss for fg + moss/20 for bg instead of retuning the palette) is correct — light mode is untouched. Confirmed by side-by-side visual check.",
+    "The sevColor light/dark map in DiagnosisResult.jsx is clean; consider extracting the disease-library inline ternary in Dashboard.jsx line ~184 into the same sevColor helper to avoid duplication.",
+    "Console shows 401 errors from /api/auth/me for anonymous visitors — pre-existing, not related to dark mode, but consider suppressing to reduce console noise."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100% (all iteration_2 regressions fixed; only 1 minor borderline hover-contrast note)"},
+  "test_credentials": "Not required — anonymous /api/detect + /api/report/pdf flow used.",
+  "seed_data_creation": "None. Reused /tmp/leaf.jpg. Exactly ONE /api/detect call was made.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Dark mode is production-ready. All 3 iteration_2 contrast bugs resolved. Only nit is Download PDF hover at ~4.1:1 (borderline WCAG AA for small text). Full flow (upload → detect → PDF) works in dark. Light mode is regression-clean.",
+  "rca of the issue": "iteration_2 root cause: --bot-forest was lighter than --bot-sage in dark palette, inverting the light-mode 'sage bg + forest fg' pairing. Main agent's fix: added dark: overrides (bg-botanical-moss/20 + text-botanical-moss) at the component level instead of retuning the palette, keeping light mode byte-identical. Verified via computed styles: active tab = moss on sage, step pills = moss on moss/20, upload chip likewise. Fix confirmed effective."
+}

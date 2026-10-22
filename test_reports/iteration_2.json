@@ -1,0 +1,70 @@
+{
+  "summary": "Frontend-only dark-mode testing for Verdaleaf. Verified theme toggle, localStorage persistence, no-flash reload, cross-route persistence (/, /dashboard), invalid-file toast in dark, real Gemini leaf detection in dark (~10s, returned 'Healthy leaf' 98%), PDF report download (475KB PDF, /api/report/pdf), and light-mode regression after toggle-back. Core dark-mode functionality WORKS. Identified specific contrast regressions where botanical-forest text (mid-dark green) is placed on dark surfaces, and where the ACTIVE tab in DiagnosisResult is visually less prominent than the inactive one.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "DiagnosisResult tabs (Treatment/Prevention)",
+        "issue": "In DARK mode, the ACTIVE tab uses text-botanical-forest which resolves to rgb(62,111,69) on bot-card bg rgb(28,38,30) — ~4.3:1 contrast and, critically, DARKER than the inactive tab text (rgb 160,177,160 = bot-ink). The active tab therefore looks less prominent than the inactive one — visually inverted state. Suggestion: use text-botanical-moss (or a lighter green) for data-[state=active] in dark, and/or a clearly lighter active background.",
+        "selector": "[data-testid=\"tab-treatment\"], [data-testid=\"tab-prevention\"]",
+        "priority": "HIGH"
+      },
+      {
+        "component": "Landing feature cards + Dashboard upload icon + Treatment/Prevention number pills",
+        "issue": "Circular icon container uses bg-botanical-sage/60 with text-botanical-forest. In dark mode bot-sage=125 14% 24% (very dark) at 60% alpha over dark card, and bot-forest icon color is 128 28% 34% — dark-on-dark icons that are barely visible. Same combination is used for the numbered step pills (1/2/3) inside the Treatment and Prevention tab lists (see screenshot: pills nearly invisible).",
+        "selector": "[data-testid^=\"feature-card-\"] .bg-botanical-sage\\/60, [data-testid=\"upload-area\"] .bg-botanical-sage\\/60, [data-testid^=\"treatment-\"] span:first-child, [data-testid^=\"prevention-\"] span:first-child",
+        "priority": "HIGH"
+      },
+      {
+        "component": "UploadZone empty-state 'Select file' hint",
+        "issue": "text-botanical-forest on the dark upload card body is low contrast; the 'Select file' affordance almost disappears. Consider text-botanical-moss in dark.",
+        "selector": "[data-testid=\"upload-area\"]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Landing / features section (dark)",
+        "issues": ["Feature-card icon squares blend into card background — icons unreadable. Titles are readable when animation completes."]
+      },
+      {
+        "screen": "DiagnosisResult (dark)",
+        "issues": [
+          "Numbered step badges (1/2/3) in Treatment/Prevention lists nearly invisible.",
+          "Active tab looks weaker than inactive — user cannot tell which tab is selected at a glance."
+        ]
+      }
+    ]
+  },
+  "verified_passing": [
+    "Theme toggle switches app between light and dark; sun/moon icon swap works.",
+    "localStorage['verdaleaf-theme'] persists ('dark'/'light').",
+    "No flash-of-white on reload (inline script in public/index.html applies .dark before React mounts).",
+    "Dark persists across navigation from / to /dashboard.",
+    "Toast (sonner) renders readably in dark mode — invalid-file error shown correctly.",
+    "Real Gemini /api/detect call succeeded in dark mode; DiagnosisResult rendered.",
+    "PDF download works in dark mode: 475KB PDF, filename 'verdaleaf-healthy-leaf.pdf', POST /api/report/pdf 200.",
+    "Toggling back to light while DiagnosisResult on screen — light theme intact, no leftover dark surfaces.",
+    "Deep-green 'Symptoms observed' panel: white/90 text on bot-forest (34% L) is readable.",
+    "Landing CTA strip white pill 'Sign in with Google' uses hardcoded #1E3F20 → still readable on white in dark mode.",
+    "Landing outline 'How it works' + Dashboard 'Sign in to save history' outline buttons use dark:text-botanical-moss — readable."
+  ],
+  "test_report_links": [],
+  "action_items": [
+    "Fix ACTIVE tab styling in DiagnosisResult for dark mode — currently darker than inactive. Recommend: data-[state=active]:text-botanical-moss dark:data-[state=active]:text-botanical-moss + a lighter active bg (e.g. bg-botanical-sage/40) so the selected tab is unambiguously highlighted.",
+    "Fix bg-botanical-sage/60 + text-botanical-forest icon/badge pattern in dark: either bump --bot-sage lightness in .dark or add dark: overrides so icons/step numbers are legible. Affects: Landing feature-card icons, UploadZone leaf icon, DiagnosisResult treatment/prevention step numbers.",
+    "Consider dark: override for the UploadZone 'Select file' text (text-botanical-forest → text-botanical-moss in dark)."
+  ],
+  "critical_code_review_comments": [
+    "CSS-variable approach is clean and light-mode is preserved perfectly, but the .dark palette makes --bot-forest lighter (34%L) while --bot-sage is DARKER (24%L) than in light — this inverts the sage-vs-forest relationship, so any element that assumed 'sage bg + forest fg' (a light-on-dark pair) becomes dark-on-dark in dark mode. Search the codebase for `bg-botanical-sage` combined with `text-botanical-forest` and add dark overrides.",
+    "Tabs component hardcodes data-[state=active]:bg-botanical-card data-[state=active]:text-botanical-forest — in dark the active bg equals the surrounding card bg (both --bot-card 13%L), erasing visual separation. Consider using shadcn tokens (bg-background/foreground) or dark-specific overrides."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "80% (all functional flows pass; 3 contrast regressions)"},
+  "test_credentials": "Not required — /api/detect, /api/report/pdf, /api/diseases, /api/tips work unauthenticated. Google OAuth not automated.",
+  "seed_data_creation": "None. Uploaded /tmp/leaf.jpg (fetched from unsplash) for detect flow.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Dark-mode plumbing (toggle, persistence, no-flash, cross-route) is solid. Focus retest on the three contrast fixes listed in action_items — specifically: (1) DiagnosisResult active tab visible/inverted vs inactive, (2) sage-bg + forest-fg icon/badge pattern legibility, (3) UploadZone 'Select file' text. Use viewport 1920x1080. A real Gemini detect call takes ~10s and successfully returns 'Healthy leaf'."
+}
