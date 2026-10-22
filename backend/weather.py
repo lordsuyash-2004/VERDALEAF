@@ -18,7 +18,7 @@ GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
 _TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 _HEADERS = {"User-Agent": "Verdaleaf-PlantApp/1.0"}
 _CACHE: Dict[str, Any] = {}
-_CACHE_TTL = 15 * 60
+_CACHE_TTL = 30 * 60
 
 LEVELS = ["low", "moderate", "high"]
 
@@ -35,7 +35,7 @@ async def _get(url: str, params: dict) -> dict:
     import asyncio, logging
     for attempt in range(3):
         try:
-            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+             async with httpx.AsyncClient(timeout=_TIMEOUT, headers=_HEADERS) as client:
                 r = await client.get(url, params=params)
                 if r.status_code == 429:
                     logging.warning(f"Open-Meteo rate limit hit, retry {attempt+1}/3")
