@@ -238,21 +238,60 @@ def compute_risk(data: dict) -> dict:
     }
 
 
-async def disease_risk(lat: float, lon: float) -> dict:
-    key = f"{round(lat, 2)}:{round(lon, 2)}"
-    hit = _CACHE.get(key)
-    if hit and time.time() - hit[0] < _CACHE_TTL:
-        return hit[1]
-    data = await _get(FORECAST_URL, {
-        "latitude": lat,
-        "longitude": lon,
-        "current": "temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,is_day",
-        "hourly": "temperature_2m,relative_humidity_2m,precipitation,dew_point_2m",
-        "forecast_days": 4,
-        "timezone": "auto",
-    })
-    result = compute_risk(data)
-    _CACHE[key] = (time.time(), result)
-    if len(_CACHE) > 500:
-        _CACHE.clear()
-    return result
+def _convert_weatherapi(wdata: dict) -> dict:
+    cur = wdata.get("current", {})
+    loc = wdata.get("location", {})
+    forecast_days = wdata.get("forecast", {}).get("forecastday", [])
+    
+    # Build hourly arrays from forecast days
+    temps, rhs, rains, dews, times = [], [], [], [], []
+    for day in forecast_days:
+        for hour in day.get("hour", []):
+            times.append(hour["time"].replace(" ", "T"))
+            temps.append(hour.get("temp_c"))
+            rhs.append(hour.get("humidity"))
+            rains.append(hour.get("precip_mm", 0))
+            dews.append(hour.get("dewpoint_c"))
+    
+    n = len(times)
+    m = _assess(temps, rhs, rains, dews) if n > 0 else {"wet_hours": 0, "fungal_hours": 0, "bacterial_hours": 0, "heat_hours": 0, "rain_mm": 0}
+    hours = min(n, 72)
+    
+    fungal_level = _level(m["fungal_hours"], 10, 24)
+    bact_signal = m["bacterial_hours"] + (12 if m["rain_mm"] >= 15 else 6 if m["rain_mm"] >= 5 else 0)
+    bact_level = _level(bact_signal, 8, 18)
+    heat_level = _level(m["heat_hours"], 4, 12)
+    
+    risks = [
+        {"key": "fungal", "label": "Fungal diseases", "examples": "Early & late blight, leaf spots, downy mildew, rust",
+         "level": fungal_level, "score": _score(m["fungal_hours"], 36),
+         "reason": f"{m['fungal_hours']} damp hours at 15-30°C" if m["fungal_hours"] else "Low fungal pressure",
+         "advice": ["Monitor leaves regularly", "Avoid overhead watering"]},
+        {"key": "bacterial", "label": "Bacterial diseases", "examples": "Bacterial spot, blight, soft rot",
+         "level": bact_level, "score": _score(bact_signal, 27),
+         "reason": f"{m['bacterial_hours']} warm wet hours" if m["bacterial_hours"] else "Low bacterial pressure",
+         "advice": ["Disinfect tools", "Mulch around base"]},
+        {"key": "heat", "label": "Heat & mite stress", "examples": "Spider mites, leaf scorch, wilting",
+         "level": heat_level, "score": _score(m["heat_hours"], 18),
+         "reason": f"{m['heat_hours']} hot dry hours" if m["heat_hours"] else "No heat stress expected",
+         "advice": ["Water deeply in morning", "Provide shade if needed"]},
+    ]
+    overall = max((r["level"] for r in risks), key=LEVELS.index)
+    
+    daily = []
+    for day in forecast_days[:3]:
+        d = day["date"]
+        daily.append({"date": d, "weekday": datetime.fromisoformat(d).strftime("%a"),
+                       "temp_min": day["day"].get("mintemp_c"), "temp_max": day["day"].get("maxtemp_c"),
+                       "humidity_avg": day["day"].get("avghumidity"), "rain_mm": day["day"].get("totalprecip_mm", 0),
+                       "fungal_level": "low"})
+    
+    return {
+        "current": {"time": cur.get("last_updated"), "temperature": cur.get("temp_c"),
+                     "humidity": cur.get("humidity"), "precipitation": cur.get("precip_mm"),
+                     "wind_speed": cur.get("wind_kph"), "weather_code": 0, "is_day": cur.get("is_day")},
+        "overall_level": overall, "headline": f"{overall.title()} disease risk",
+        "risks": risks, "daily": daily, "metrics": {**m, "hours": hours},
+        "timezone": loc.get("tz_id"), "latitude": loc.get("lat"), "longitude": loc.get("lon"),
+        "source": "WeatherAPI.com", "disclaimer": "Rule-based estimate from forecast weather — not a diagnosis.",
+    }
